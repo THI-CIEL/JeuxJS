@@ -13,6 +13,11 @@ exp.get('/', function (req, res) {
     res.sendFile(__dirname + '/www/textchat.html');
 });
 
+exp.get('/qr', function (req, res) {
+    console.log('Réponse à un client - Page QR');
+    res.sendFile(__dirname + '/www/qr.html');
+});
+
 /*  *************** serveur WebSocket express *********************   */
 var expressWs = require('express-ws')(exp);
 
@@ -43,18 +48,18 @@ exp.ws('/echo', function (ws, req) {
         console.log('Message de %s:%s - %s',
             req.socket.remoteAddress, req.socket.remotePort, message);
         
-        // Ajouter l'adresse IP de l'expéditeur au message
+        // Ajoute l'adresse IP de l'expéditeur au message
         var ipAddress = req.headers['x-forwarded-for'] || 
                        req.connection.remoteAddress || 
                        req.socket.remoteAddress ||
                        (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-                       '172.17.50.133'; // IP par défaut si aucune détectée
+                       '172.17.50.133'; // IP par défaut si aucune détectée (la mienne)
         
         // Nettoyer l'adresse IPv6 mapped vers IPv4
         if (ipAddress.startsWith('::ffff:')) {
             ipAddress = ipAddress.substring(7);
         } else if (ipAddress === '::1') {
-            ipAddress = '172.17.50.133'; // Utiliser votre IP réseau au lieu de localhost
+            ipAddress = '172.17.50.133';
         }
         
         var messageAvecIP = ipAddress + ' : ' + message;
