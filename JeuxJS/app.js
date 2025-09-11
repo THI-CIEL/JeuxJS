@@ -128,9 +128,24 @@ exp.ws('/qr', function (ws, req) {
         // Vérifier si la réponse est correcte
         if (message == bonneReponse) { 
             console.log('Bonne réponse ! Nouvelle question générée.');
-            NouvelleQuestion(); 
+            
+            // Envoyer message de succès uniquement à celui qui a répondu
+            ws.send('Bonne réponse ! Bravo !');
+            
+            // Attendre 3 secondes puis envoyer nouvelle question
+            setTimeout(function() {
+                NouvelleQuestion();
+            }, 3000);
         } else {
             console.log('Mauvaise réponse de %s:%s', req.socket.remoteAddress, req.socket.remotePort);
+            
+            // Envoyer message d'échec uniquement à celui qui a répondu
+            ws.send('Mauvaise réponse. Essayez encore !');
+            
+            // Remettre la question actuelle après 3 secondes
+            setTimeout(function() {
+                ws.send(question);
+            }, 3000);
         }
     } 
  
