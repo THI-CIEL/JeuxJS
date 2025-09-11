@@ -23,7 +23,9 @@ var expressWs = require('express-ws')(exp);
 
 /*  ****************** Broadcast clients WebSocket  **************   */ 
 var aWss = expressWs.getWss('/echo');
+var aWssQR = expressWs.getWss('/qr');
 var WebSocket = require('ws'); 
+
 aWss.broadcast = function broadcast(data) { 
     console.log("Broadcast aux clients navigateur : %s", data); 
     aWss.clients.forEach(function each(client) { 
@@ -33,6 +35,21 @@ aWss.broadcast = function broadcast(data) {
 client._socket.remotePort); 
                 if (error) { 
                     console.log('ERREUR websocket broadcast : %s', error.toString()); 
+                } 
+            }); 
+        } 
+    }); 
+};
+
+aWssQR.broadcast = function broadcast(data) { 
+    console.log("Broadcast question aux clients QR : %s", data); 
+    aWssQR.clients.forEach(function each(client) { 
+        if (client.readyState == WebSocket.OPEN) { 
+            client.send(data, function ack(error) { 
+                console.log("    -  %s-%s", client._socket.remoteAddress, 
+client._socket.remotePort); 
+                if (error) { 
+                    console.log('ERREUR websocket broadcast QR : %s', error.toString()); 
                 } 
             }); 
         } 
@@ -76,6 +93,62 @@ exp.ws('/echo', function (ws, req) {
     ws.on('error', function (error) {
         console.error('Erreur WebSocket:', error);
     });
+});
+
+/*  ****************** Variables globales jeu Questions/Réponses **************   */
+var question = '?'; 
+var bonneReponse = 0; 
+
+/*  ****************** Connexion clients WebSocket /qr - Jeu Q/R **************   */
+// Connexion des clients à la WebSocket /qr et événements associés 
+// Questions/réponses 
+exp.ws('/qr', function (ws, req) { 
+    console.log('Connexion WebSocket QR de %s sur le port %s', 
+        req.socket.remoteAddress, req.socket.remotePort); 
+    
+    // Envoyer une nouvelle question dès la connexion
+    NouvelleQuestion(); 
+ 
+    ws.on('message', TraiterReponse); 
+ 
+    ws.on('close', function (reasonCode, description) { 
+        console.log('Déconnexion WebSocket QR de %s:%s - Code: %s, Raison: %s', 
+            req.socket.remoteAddress, req.socket.remotePort, reasonCode, description); 
+    }); 
+
+    ws.on('error', function (error) {
+        console.error('Erreur WebSocket QR:', error);
+    });
+ 
+    /*  ****************** Traitement des réponses **************   */
+    function TraiterReponse(message) { 
+        console.log('Réponse de %s:%s - %s', req.socket.remoteAddress, 
+            req.socket.remotePort, message); 
+        
+        // Vérifier si la réponse est correcte
+        if (message == bonneReponse) { 
+            console.log('Bonne réponse ! Nouvelle question générée.');
+            NouvelleQuestion(); 
+        } else {
+            console.log('Mauvaise réponse de %s:%s', req.socket.remoteAddress, req.socket.remotePort);
+        }
+    } 
+ 
+    /*  ****************** Génération de nouvelles questions **************   */
+    function NouvelleQuestion() { 
+        var x = GetRandomInt(11); 
+        var y = GetRandomInt(11); 
+        question = x + ' * ' + y + ' = ?'; 
+        bonneReponse = x * y; 
+        
+        console.log('Nouvelle question générée: %s (réponse: %d)', question, bonneReponse);
+        aWssQR.broadcast(question);         
+    } 
+ 
+    /*  ****************** Générateur de nombres aléatoires **************   */
+    function GetRandomInt(max) { 
+        return Math.floor(Math.random() * Math.floor(max)); 
+    } 
 });
 
 // Démarrage du serveur (une seule fois)
