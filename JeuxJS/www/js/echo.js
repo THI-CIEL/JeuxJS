@@ -19,7 +19,7 @@ function TesterLaCompatibilite() {          // Test de compatibilité Websocket 
 
 /*  ***************** Connexion au serveur WebSocket ********************   */
 function ConnexionAuServeurWebsocket() {
-    ws = new WebSocket('ws://' + ipServeur + ':80/echo');          // Nouvelle Websocket
+    ws = new WebSocket('ws://' + ipServeur + '/echo');          // Nouvelle Websocket
 
     ws.onclose = function (evt) {
         console.log('WebSocket fermée - Code:', evt.code, 'Raison:', evt.reason);

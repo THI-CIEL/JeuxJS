@@ -10,11 +10,29 @@ var exp = express();
 exp.use(express.static(__dirname + '/www'));
 exp.get('/', function (req, res) {
     console.log('Réponse à un client');
-    res.sendFile(__dirname + '/www/index.html');
+    res.sendFile(__dirname + '/www/textchat.html');
 });
 
 /*  *************** serveur WebSocket express *********************   */
 var expressWs = require('express-ws')(exp);
+
+/*  ****************** Broadcast clients WebSocket  **************   */ 
+var aWss = expressWs.getWss('/echo');
+var WebSocket = require('ws'); 
+aWss.broadcast = function broadcast(data) { 
+    console.log("Broadcast aux clients navigateur : %s", data); 
+    aWss.clients.forEach(function each(client) { 
+        if (client.readyState == WebSocket.OPEN) { 
+            client.send(data, function ack(error) { 
+                console.log("    -  %s-%s", client._socket.remoteAddress, 
+client._socket.remotePort); 
+                if (error) { 
+                    console.log('ERREUR websocket broadcast : %s', error.toString()); 
+                } 
+            }); 
+        } 
+    }); 
+};
 
 // Connexion des clients à la WebSocket /echo et événements associés
 exp.ws('/echo', function (ws, req) {
@@ -24,7 +42,25 @@ exp.ws('/echo', function (ws, req) {
     ws.on('message', function (message) {
         console.log('Message de %s:%s - %s',
             req.socket.remoteAddress, req.socket.remotePort, message);
-        ws.send(message);
+        
+        // Ajouter l'adresse IP de l'expéditeur au message
+        var ipAddress = req.headers['x-forwarded-for'] || 
+                       req.connection.remoteAddress || 
+                       req.socket.remoteAddress ||
+                       (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+                       '172.17.50.133'; // IP par défaut si aucune détectée
+        
+        // Nettoyer l'adresse IPv6 mapped vers IPv4
+        if (ipAddress.startsWith('::ffff:')) {
+            ipAddress = ipAddress.substring(7);
+        } else if (ipAddress === '::1') {
+            ipAddress = '172.17.50.133'; // Utiliser votre IP réseau au lieu de localhost
+        }
+        
+        var messageAvecIP = ipAddress + ' : ' + message;
+        
+        // Diffuser le message avec l'IP à tous les clients connectés
+        aWss.broadcast(messageAvecIP);
     });
 
     ws.on('close', function (reasonCode, description) {
@@ -44,17 +80,17 @@ var server = exp.listen(port, function () {
 
 // Gestion propre de l'arrêt du serveur
 process.on('SIGINT', function () {
-    console.log('\nArrêt du serveur en cours...');
+    console.log('\nArrêt du serveur...');
     server.close(function () {
-        console.log('Serveur arrêté proprement');
+        console.log('Serveur arrêté');
         process.exit(0);
     });
 });
 
 process.on('SIGTERM', function () {
-    console.log('\nArrêt du serveur demandé...');
+    console.log('\nArrêt du serveur...');
     server.close(function () {
-        console.log('Serveur arrêté proprement');
+        console.log('Serveur arrêté');
         process.exit(0);
     });
 });
